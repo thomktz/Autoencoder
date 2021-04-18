@@ -11,8 +11,8 @@ import torch
 
 image_size = 128
 batch_size = 64
-PATH = ".\\images\\"
-test_PATH = ".\\subset\\"
+PATH = "D:\\Github\\Data\\images\\"
+test_PATH = "D:\\Github\\Data\\subset\\"
 
 # %% Get average facial landmark positions
 """  NOT ACTUALLY NEEDED, cf next cells
