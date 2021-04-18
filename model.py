@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 import torchvision
+import glob
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from data_treatment import dataloader, testloader, batch_size, image_size
@@ -103,67 +104,84 @@ autoencoder = autoencoder.to(device)
 num_params = sum(p.numel() for p in autoencoder.parameters() if p.requires_grad)
 print('Number of parameters: %d' % num_params)# %%
 
+# %% Save model state
+
+def save(epoch, model, optimizer, loss_list, path):
+    torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss_list': loss_list[:-1],
+            }, path)
+
+def load(path):
+    checkpoint = torch.load(path, map_location=device)
+    autoencoder = Autoencoder().cuda()
+    autoencoder.load_state_dict(checkpoint['model_state_dict'])
+    optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    loss_list = checkpoint['loss_list']
+    return epoch, autoencoder, optimizer, loss_list
+
+
 # %%
 learning_rate = 1e-4  #first run @ 1e-3
 batch_size = 64
-num_epochs = 300
+num_epochs = 100
 # %%
-optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-# set to training mode
-autoencoder.train()
+def train(model_number, new_epochs_number):
+    if len(glob.glob(f"models\\number_{model_number}\\")) == 0:
+        print(f"Creating model number {model_number}")
+        autoencoder = Autoencoder()
+        autoencoder = autoencoder.to(device)
+        optimizer = optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
+        train_loss_avg = []
+    else:
+        old_epoch, autoencoder, optimizer, train_loss_avg = load(f"models\\number_{model_number}\\checkpoint.pth")
+        print(f"Succesfully loaded model number {model_number}")
+    print('Training ...')
+    try:
+        autoencoder.train()
+        for epoch in range(new_epochs_number):
+            train_loss_avg.append(0)
+            num_batches = 0
+            if epoch+old_epoch % save_every == 0:
+                save(epoch+old_epoch, autoencoder, optimizer, train_loss_avg, f"models\\number_{model_number}\\checkpoint_{epoch+old_epoch}.pth")
+            for image_batch, _ in dataloader:
+                image_batch = image_batch.to(device)
+                image_batch_recon = autoencoder(image_batch)
+                loss = F.mse_loss(image_batch_recon, image_batch)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()           
+                train_loss_avg[-1] += loss.item()
+                num_batches += 1
+                if num_batches % print_every == 0:
+                    print(f"Batch no {num_batches}, loss : {loss.item()}")
+                
+            train_loss_avg[-1] /= num_batches
+            print('Epoch [%d / %d] average reconstruction error: %f' % (epoch+1+old_epoch, new_epochs_number+old_epoch, train_loss_avg[-1]))
+        save(epoch+old_epoch, autoencoder, optimizer, train_loss_avg, f"models\\number_{model_number}\\checkpoint.pth")
+    except KeyboardInterrupt:
+        print("Training stopped.")
+        save(epoch+old_epoch, autoencoder, optimizer, train_loss_avg, f"models\\number_{model_number}\\checkpoint.pth")
 
-train_loss_avg = []
+train(0, 100)
 
-print('Training ...')
-try:
-    for epoch in range(num_epochs):
-        train_loss_avg.append(0)
-        num_batches = 0
-        if epoch % save_every == 0:
-            torch.save(autoencoder.state_dict(), f"models\\bigger_model_epoch{epoch}.pth")
-        for image_batch, _ in dataloader:
-
-            
-            image_batch = image_batch.to(device)
-            
-            # autoencoder reconstruction
-            image_batch_recon = autoencoder(image_batch)
-            
-            # reconstruction error
-            loss = F.mse_loss(image_batch_recon, image_batch)
-            
-            # backpropagation
-            optimizer.zero_grad()
-            loss.backward()
-            
-            # one step of the optmizer (using the gradients from backpropagation)
-            optimizer.step()
-            
-            train_loss_avg[-1] += loss.item()
-            num_batches += 1
-            if num_batches % print_every == 0:
-                print(f"Batch no {num_batches}, loss : {loss.item()}")
-            
-        train_loss_avg[-1] /= num_batches
-        print('Epoch [%d / %d] average reconstruction error: %f' % (epoch+1, num_epochs, train_loss_avg[-1]))
-    torch.save(autoencoder.state_dict(), "models\\bigger_model.pth")
-except KeyboardInterrupt:
-    print("Entrainement arrêté")
-    torch.save(autoencoder.state_dict(), "models\\bigger_model.pth")
 
 # %%
-fig = plt.figure()
-plt.plot(train_loss_avg[:-1])
-plt.xlabel('Epochs')
-plt.ylabel('Reconstruction error')
-plt.show()
-# %%
-autoencoder.eval()
+def show_loss(model_number):
+    _ , _ , _ , train_loss_avg = load(f"models\\number_{model_number}\\checkpoint.pth")
+    fig = plt.figure()
+    plt.plot(train_loss_avg[:-1])
+    plt.xlabel('Epochs')
+    plt.ylabel('Reconstruction error')
+    plt.show()
 
-# This function takes as an input the images to reconstruct
-# and the name of the model with which the reconstructions
-# are performed
+show_loss(0)
+# %%
 def to_img(x):
     #x = 0.5 * (x + 1)
     #x = x.clamp(0, 1)
@@ -175,9 +193,7 @@ def show_image(img):
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
 def visualise_output(images, model):
-
     with torch.no_grad():
-
         images = images.to(device)
         images = model(images)
         images = images.cpu()
@@ -185,15 +201,21 @@ def visualise_output(images, model):
         np_imagegrid = torchvision.utils.make_grid(images[1:50], 10, 5).numpy()
         plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
         plt.show()
+    
+def reconstruct(model_number):
 
-images, _ = iter(testloader).next()
+    old_epoch, autoencoder, optimizer, train_loss_avg = load(f"models\\number_{model_number}\\checkpoint.pth")
+    autoencoder.eval()
+    images, _ = iter(testloader).next()
 
-# First visualise the original images
-print('Original images')
-show_image(torchvision.utils.make_grid(images[1:50],10,5))
-plt.show()
+    # First visualise the original images
+    print('Original images')
+    show_image(torchvision.utils.make_grid(images[1:50],10,5))
+    plt.show()
 
-# Reconstruct and visualise the images using the autoencoder
-print('Autoencoder reconstruction:')
-visualise_output(images, autoencoder)
+    # Reconstruct and visualise the images using the autoencoder
+    print('Autoencoder reconstruction:')
+    visualise_output(images, autoencoder)
+
+reconstruct(0)
 # %%
