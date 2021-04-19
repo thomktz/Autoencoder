@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 import torchvision
+import time
 import glob
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -128,7 +129,7 @@ def load(path):
 # %%
 learning_rate = 1e-4  #first run @ 1e-3
 batch_size = 64
-num_epochs = 100
+num_epochs = 1000
 # %%
 
 def train(model_number, new_epochs_number):
@@ -138,10 +139,12 @@ def train(model_number, new_epochs_number):
         autoencoder = autoencoder.to(device)
         optimizer = optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
         train_loss_avg = []
+        old_epoch = 0
     else:
         old_epoch, autoencoder, optimizer, train_loss_avg = load(f"models\\number_{model_number}\\checkpoint.pth")
-        print(f"Succesfully loaded model number {model_number}")
+        print(f"Succesfully loaded model number {model_number}, continuiing at epoch {old_epoch}")
     print('Training ...')
+    start = time.time()
     try:
         autoencoder.train()
         for epoch in range(new_epochs_number):
@@ -159,10 +162,11 @@ def train(model_number, new_epochs_number):
                 train_loss_avg[-1] += loss.item()
                 num_batches += 1
                 if num_batches % print_every == 0:
-                    print(f"Batch no {num_batches}, loss : {loss.item()}")
+                    #print(f"Batch no {num_batches}, loss : {loss.item()}")
+                    pass
                 
             train_loss_avg[-1] /= num_batches
-            print('Epoch [%d / %d] average reconstruction error: %f' % (epoch+1+old_epoch, new_epochs_number+old_epoch, train_loss_avg[-1]))
+            print('Epoch [%d / %d] average reconstruction error: %f, elapsed time : %d minutes, remaining : %d' % (epoch+1+old_epoch, new_epochs_number+old_epoch, train_loss_avg[-1], int((time.time()-start)/60), int((time.time()-start)/60*(new_epochs_number-epoch)/(epoch+1))))
         save(epoch+old_epoch, autoencoder, optimizer, train_loss_avg, f"models\\number_{model_number}\\checkpoint.pth")
     except KeyboardInterrupt:
         print("Training stopped.")
