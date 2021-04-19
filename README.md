@@ -23,3 +23,7 @@ At `epoch = 200`, ground truth images :
 Reconstructions :
 
 ![](https://github.com/thomktz/Autoencoder/blob/main/reconstruction.png)
+
+### Code
+
+Models are created, loaded, saved using a model number. Saving is done automatically every `save_every` epoch, when training ends or when program in interrupted ```python KeyboardInterruption```
