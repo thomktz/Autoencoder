@@ -1,5 +1,5 @@
 # Autoencoder
-Autoencoder and PCA reduction on FFHQ image dataset
+Image Autoencoder trained on FFHQ image dataset
 
 ### Data
 
