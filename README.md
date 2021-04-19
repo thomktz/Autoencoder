@@ -29,5 +29,6 @@ Reconstructions :
 Models are created, loaded, saved using a model number. Saving is done automatically every `save_every` epoch, when training ends or when program in interrupted
 ```python 
 except KeyboardInterruption:
-  ...
+  print("Training stopped.")
+  save(...)
 ```
