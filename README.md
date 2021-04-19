@@ -12,10 +12,10 @@ It was trained overnight on a laptop GPU, more training should improve the resul
 
 ### Results
 
-At `epoch = 200`, 
+At `epoch = 200`, ground truth images :
 
-Ground truth images :
 ![](https://github.com/thomktz/Autoencoder/blob/main/ground_truth.png)
 
 Reconstructions :
+
 ![](https://github.com/thomktz/Autoencoder/blob/main/reconstruction.png)
