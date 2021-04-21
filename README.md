@@ -1,6 +1,8 @@
 # Autoencoder
 Image Autoencoder trained on FFHQ image dataset
+
 Trained from scratch using Pytorch
+
 Check my [Variational Autoencoder repo](https://github.com/thomktz/VAE) for a better version of this.
 
 ### Data
